@@ -1,0 +1,21 @@
+{
+  "short_name": "GameFit",
+  "name": "GameFit - Treine com Níveis",
+  "icons": [
+    {
+      "src": "logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#F5F4EF",
+  "background_color": "#F5F4EF",
+  "orientation": "portrait"
+}
