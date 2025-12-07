@@ -19,6 +19,9 @@ import StatsView from './components/StatsView';
 import Timer from './components/Timer';
 import Onboarding from './components/Onboarding';
 
+// Importando o logo diretamente para garantir que o build o encontre
+import logo from './logo.png';
+
 const WorkoutHistory = base44.entities.WorkoutHistory;
 const UserProgress = base44.entities.UserProgress;
 
@@ -31,7 +34,6 @@ export default function App() {
   const [location, setLocation] = useState<'home' | 'gym'>('home');
   const [sessionData, setSessionData] = useState<Record<string, { completed: boolean; weight: string }>>({});
   const [selectedDayIndex, setSelectedDayIndex] = useState(new Date().getDay());
-  const [logoError, setLogoError] = useState(false);
 
   // Daily motivation (random from constants)
   const [dailyMotivation] = useState(() => {
@@ -250,19 +252,10 @@ export default function App() {
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 flex items-center justify-center relative">
             <img 
-              src="./logo.png" 
+              src={logo} 
               alt="GameFit" 
               className="w-full h-full object-contain"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none';
-                setLogoError(true);
-              }}
             />
-            {logoError && (
-              <div className="w-12 h-12 bg-game-dark rounded-xl flex items-center justify-center text-white font-bold">
-                 GF
-              </div>
-            )}
           </div>
           
           <div>
@@ -436,7 +429,7 @@ export default function App() {
         
         {/* Footer Logo */}
         <div className="opacity-20 hover:opacity-100 transition-opacity w-8 h-8">
-            <img src="./logo.png" className="w-full h-full object-contain" alt="GameFit" />
+            <img src={logo} className="w-full h-full object-contain" alt="GameFit" />
         </div>
 
         <button 
