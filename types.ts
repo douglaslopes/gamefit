@@ -19,16 +19,20 @@ export interface DaySchedule {
 export interface WorkoutPlan {
   id: string;
   name: string;
-  minWorkoutsToUnlock: number;
+  description?: string;
+  minWorkoutsToUnlock: number; // Mantido para compatibilidade, mas usaremos workoutsToFinish
+  workoutsToFinish: number; // Nova meta: 14, 21, 30
   schedule: DaySchedule[];
 }
 
 export interface UserProgressData {
   id?: string;
+  name?: string;
   total_workouts: number;
   current_streak: number;
   last_workout_date?: string;
   unlocked_level_id: string;
+  level_history: Record<string, number>; // Rastreia treinos por nível (ex: {'nivel_1': 5})
 }
 
 export interface WorkoutHistoryItem {
