@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Trophy, TrendingUp, Zap, Target, Calendar, Award, Trash2, Download } from 'lucide-react';
+import { Trophy, TrendingUp, Zap, Target, Calendar, Award, Trash2, Download, RefreshCw, Lock, Star } from 'lucide-react';
 import { 
   LineChart, 
   Line, 
@@ -9,17 +9,17 @@ import {
   Tooltip, 
   ResponsiveContainer 
 } from 'recharts';
-import { PLANS } from '../constants';
+import { PLANS, LEVEL_3_PLAN } from '../constants';
 import { UserProgressData, WorkoutHistoryItem } from '../types';
 
 interface StatsViewProps {
   userProgress: UserProgressData | null;
   workoutHistory: WorkoutHistoryItem[];
-  nextUnlockLevel: any;
   onReset: () => void;
+  onChangePlan: (planId: string) => void;
 }
 
-export default function StatsView({ userProgress, workoutHistory, nextUnlockLevel, onReset }: StatsViewProps) {
+export default function StatsView({ userProgress, workoutHistory, onReset, onChangePlan }: StatsViewProps) {
   
   const chartData = useMemo(() => {
     return workoutHistory.slice(-10).map((h) => ({
@@ -34,12 +34,18 @@ export default function StatsView({ userProgress, workoutHistory, nextUnlockLeve
     return (sum / workoutHistory.length).toFixed(1);
   }, [workoutHistory]);
 
-  const progressPercent = nextUnlockLevel 
-    ? Math.min(100, ((userProgress?.total_workouts || 0) / nextUnlockLevel.minWorkoutsToUnlock) * 100)
-    : 100;
-
   const currentPlan = PLANS.find(p => p.id === userProgress?.unlocked_level_id) || PLANS[0];
   const currentPlanIndex = PLANS.findIndex(p => p.id === currentPlan.id);
+  
+  // Logic for specific level progress
+  const currentLevelWorkouts = userProgress?.level_history?.[currentPlan.id] || 0;
+  const isEliteMode = currentPlan.id === LEVEL_3_PLAN.id && currentLevelWorkouts > 30;
+  
+  // Targets: If Elite Mode (lvl 3 > 30 workouts), target is 365. Else, target is the plan's requirement (14, 21 or 30).
+  const progressTarget = isEliteMode ? 365 : currentPlan.workoutsToFinish;
+  const progressCurrent = currentLevelWorkouts;
+  
+  const progressPercent = Math.min(100, (progressCurrent / progressTarget) * 100);
 
   const handleDownloadCSV = () => {
     let csvContent = "data:text/csv;charset=utf-8,ID,Nome,Grupo Muscular,Link Imagem Atual\n";
@@ -70,47 +76,97 @@ export default function StatsView({ userProgress, workoutHistory, nextUnlockLeve
 
   return (
     <div className="space-y-6 pb-24">
+      {/* Welcome Header in Stats */}
+      <div className="flex items-center gap-2 mb-2">
+        <div className="w-12 h-12 bg-white rounded-full border border-game-dim flex items-center justify-center font-bold text-xl text-game-dark">
+            {userProgress?.name ? userProgress.name.charAt(0).toUpperCase() : 'U'}
+        </div>
+        <div>
+            <h2 className="text-lg font-bold text-game-dark leading-none">Perfil de {userProgress?.name}</h2>
+            <p className="text-xs text-gray-500">Membro desde {new Date().getFullYear()}</p>
+        </div>
+      </div>
+
       {/* Gamification Card */}
-      <div className="bg-game-dark rounded-2xl p-6 shadow-xl relative overflow-hidden text-white">
+      <div className={`rounded-2xl p-6 shadow-xl relative overflow-hidden text-white transition-all duration-500 ${isEliteMode ? 'bg-gradient-to-br from-yellow-500 via-amber-600 to-yellow-700' : 'bg-game-dark'}`}>
         <div className="absolute top-0 right-0 p-4 opacity-10">
-          <Trophy size={120} className="text-white" />
+          {isEliteMode ? <Star size={120} className="text-white" /> : <Trophy size={120} className="text-white" />}
         </div>
         
         <div className="relative z-10">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold flex items-center gap-2">
-              <Award className="text-white" />
-              {currentPlan.name}
+              {isEliteMode ? <Star className="text-yellow-100" fill="currentColor" /> : <Award className="text-white" />}
+              {isEliteMode ? 'ELITE MASTER' : currentPlan.name}
             </h2>
-            <span className="text-xs font-mono bg-white/10 border border-white/20 px-2 py-1 rounded">
-              LVL {currentPlanIndex + 1}
+            <span className={`text-xs font-mono border px-2 py-1 rounded ${isEliteMode ? 'bg-black/20 border-black/10 text-white' : 'bg-white/10 border-white/20'}`}>
+              {isEliteMode ? 'LENDA' : `LVL ${currentPlanIndex + 1}`}
             </span>
           </div>
 
           <div className="mb-4">
-            <div className="flex justify-between text-xs text-gray-400 mb-1 font-semibold uppercase tracking-wider">
-              <span>Progresso Nível Atual</span>
+            <div className="flex justify-between text-xs text-white/70 mb-1 font-semibold uppercase tracking-wider">
+              <span>{isEliteMode ? 'Jornada Anual' : 'Progresso do Nível'}</span>
               <span className="text-white">{Math.round(progressPercent)}%</span>
             </div>
-            <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+            <div className="h-2 bg-black/20 rounded-full overflow-hidden">
               <div 
-                className="h-full bg-white transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(255,255,255,0.3)]"
+                className="h-full bg-white transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(255,255,255,0.5)]"
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
           </div>
 
-          {nextUnlockLevel ? (
-            <p className="text-xs text-gray-400 flex items-center gap-1.5">
-              <Target size={14} className="text-gray-400" />
-              Faltam <span className="font-bold text-white">{nextUnlockLevel.minWorkoutsToUnlock - (userProgress?.total_workouts || 0)}</span> treinos para {nextUnlockLevel.name}
-            </p>
-          ) : (
-            <p className="text-xs text-white font-bold flex items-center gap-1.5">
-              <Trophy size={14} /> Nível Máximo Alcançado!
-            </p>
-          )}
+          <p className="text-xs text-white/80 flex items-center gap-1.5">
+            <Target size={14} className="text-white/60" />
+            {isEliteMode 
+              ? <span>Faltam <span className="font-bold text-white">{Math.max(0, progressTarget - progressCurrent)}</span> dias para completar o ano.</span>
+              : <span>Faltam <span className="font-bold text-white">{Math.max(0, progressTarget - progressCurrent)}</span> treinos para concluir este nível.</span>
+            }
+          </p>
         </div>
+      </div>
+
+      {/* Plan Switcher */}
+      <div className="bg-white p-4 rounded-xl border border-game-dim shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-bold text-game-dark flex items-center gap-2 text-sm uppercase tracking-wide">
+            <RefreshCw size={16} /> Alterar Plano de Treino
+          </h3>
+        </div>
+        <div className="space-y-2">
+            {PLANS.map(plan => {
+                const isActive = currentPlan.id === plan.id;
+                // Allow switching if: it's the active plan (no-op), or current plan history is 0 (started new), or completed a 7-day cycle
+                const canSwitch = isActive || currentLevelWorkouts === 0 || (currentLevelWorkouts % 7 === 0);
+                
+                return (
+                  <button
+                      key={plan.id}
+                      onClick={() => {
+                          if (canSwitch) onChangePlan(plan.id);
+                          else alert(`Complete o ciclo semanal de 7 treinos antes de trocar! Você fez ${currentLevelWorkouts % 7} de 7.`);
+                      }}
+                      className={`w-full text-left p-3 rounded border text-sm flex items-center justify-between transition-colors relative
+                          ${isActive
+                              ? 'bg-game-dark text-white border-game-dark' 
+                              : canSwitch 
+                                ? 'bg-game-light text-game-dark border-game-dim hover:border-gray-300'
+                                : 'bg-gray-50 text-gray-400 border-gray-100 cursor-not-allowed'}
+                      `}
+                  >
+                      <span className="font-bold">{plan.name}</span>
+                      <div className="flex items-center gap-2">
+                          {isActive && <span className="text-[10px] uppercase font-bold bg-white/20 px-2 py-0.5 rounded">Ativo</span>}
+                          {!canSwitch && !isActive && <Lock size={14} className="text-gray-400" />}
+                      </div>
+                  </button>
+                );
+            })}
+        </div>
+        <p className="text-[10px] text-gray-400 mt-2 text-center">
+            * Mudanças de plano só são permitidas ao completar ciclos de 7 treinos.
+        </p>
       </div>
 
       {/* Stats Grid */}
