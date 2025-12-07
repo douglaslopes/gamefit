@@ -47,6 +47,7 @@ export const LEVEL_1_PLAN: WorkoutPlan = {
   id: 'iniciante_fundacao',
   name: 'Nível 1: Fundação',
   minWorkoutsToUnlock: 0,
+  workoutsToFinish: 14, // Meta ajustada: 14 dias
   schedule: [
     {
       dayName: 'Domingo',
@@ -167,6 +168,7 @@ export const LEVEL_2_PLAN: WorkoutPlan = {
   id: 'intermediario_volume',
   name: 'Nível 2: Intermediário',
   minWorkoutsToUnlock: 20,
+  workoutsToFinish: 21, // Meta ajustada: 21 dias
   schedule: [
      {
       dayName: 'Domingo',
@@ -284,6 +286,7 @@ export const LEVEL_3_PLAN: WorkoutPlan = {
   id: 'avancado_performance',
   name: 'Nível 3: Avançado',
   minWorkoutsToUnlock: 50,
+  workoutsToFinish: 30, // Meta ajustada: 30 dias
   schedule: [
      {
       dayName: 'Domingo',
@@ -400,10 +403,12 @@ export const LEVEL_3_PLAN: WorkoutPlan = {
         { id: 'l3-sab-4h', name: 'Mountain Climbers', sets: 3, reps: '60s', description: 'Ritmo alto.', muscleGroup: 'Cardio', imageUrl: getImg('Mountain+Climbers') },
       ],
       exercisesGym: [
-        { id: 'l3-sab-1g', name: 'Power Clean', sets: 5, reps: '5', description: 'Técnica olímpica.', muscleGroup: 'Full Body', imageUrl: getImg('Power+Clean') },
-        { id: 'l3-sab-2g', name: 'Push Press', sets: 4, reps: '6-8', description: 'Use as pernas para impulsionar.', muscleGroup: 'Ombros', imageUrl: getImg('Push+Press') },
-        { id: 'l3-sab-3g', name: 'Box Jump', sets: 4, reps: '8', description: 'Caixa alta.', muscleGroup: 'Pernas', imageUrl: getImg('Box+Jump') },
-        { id: 'l3-sab-4g', name: 'Kettlebell Swing', sets: 4, reps: '15', description: 'Potência do quadril.', muscleGroup: 'Posterior', imageUrl: getImg('KB+Swing') },
+        // REMOVED CROSSFIT EXERCISES (Power Clean, Box Jump, Push Press, KB Swing)
+        // REPLACED WITH MACHINE/DUMBBELL FOCUS
+        { id: 'l3-sab-1g', name: 'Agachamento no Smith', sets: 4, reps: '8-10', description: 'Movimento controlado e seguro.', muscleGroup: 'Pernas', imageUrl: getImg('Agachamento+Smith') },
+        { id: 'l3-sab-2g', name: 'Desenvolvimento Arnold', sets: 4, reps: '8-12', description: 'Halteres, rotação de punho.', muscleGroup: 'Ombros', imageUrl: getImg('Desenv.+Arnold') },
+        { id: 'l3-sab-3g', name: 'Leg Press 45º', sets: 4, reps: '10-12', description: 'Carga alta, segurança máxima.', muscleGroup: 'Pernas', imageUrl: getImg('Leg+Press') },
+        { id: 'l3-sab-4g', name: 'Stiff com Halteres', sets: 4, reps: '10-12', description: 'Foco total no posterior.', muscleGroup: 'Posterior', imageUrl: getImg('Stiff+Halter') },
       ]
     },
   ]
