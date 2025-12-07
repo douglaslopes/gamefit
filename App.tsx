@@ -10,12 +10,6 @@ import {
   Lock,
   Sparkles
 } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@radix-ui/react-dropdown-menu";
 
 import { PLANS, LEVEL_1_PLAN, MOTIVATIONAL_QUOTES, WORKOUT_TIPS } from './constants';
 import { base44 } from './services/storage';
@@ -23,6 +17,7 @@ import ExerciseCard from './components/ExerciseCard';
 import NPSModal from './components/NPSModal';
 import StatsView from './components/StatsView';
 import Timer from './components/Timer';
+import Onboarding from './components/Onboarding';
 
 const WorkoutHistory = base44.entities.WorkoutHistory;
 const UserProgress = base44.entities.UserProgress;
@@ -45,7 +40,7 @@ export default function App() {
   });
 
   // Fetch user progress
-  const { data: userProgressList = [] } = useQuery({
+  const { data: userProgressList = [], isLoading: isLoadingProgress } = useQuery({
     queryKey: ['userProgress'],
     queryFn: () => UserProgress.list()
   });
@@ -58,7 +53,7 @@ export default function App() {
 
   const userProgress = userProgressList[0] || null;
 
-  // Create initial progress if needed
+  // Mutations
   const createProgressMutation = useMutation({
     mutationFn: (data: any) => UserProgress.create(data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['userProgress'] })
@@ -74,26 +69,11 @@ export default function App() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['workoutHistory'] })
   });
 
-  // Initialize user progress if not exists
-  useEffect(() => {
-    if (userProgressList.length === 0 && !createProgressMutation.isPending) {
-      createProgressMutation.mutate({
-        total_workouts: 0,
-        current_streak: 0,
-        unlocked_level_id: 'iniciante_fundacao'
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userProgressList]);
-
   // Derived Values
   const currentPlan = PLANS.find(p => p.id === userProgress?.unlocked_level_id) || LEVEL_1_PLAN;
   const todayWorkout = currentPlan.schedule[selectedDayIndex];
   const currentExercises = location === 'home' ? todayWorkout.exercisesHome : todayWorkout.exercisesGym;
-  
   const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-
-  // Get tip for today's workout
   const todayTip = WORKOUT_TIPS[todayWorkout.focus] || 'Foque na técnica antes da carga!';
 
   // Tag styling based on workout type
@@ -105,7 +85,7 @@ export default function App() {
       };
     }
     
-    if (currentPlan.id === 'iniciante_fundacao') {
+    if (currentPlan.id.includes('iniciante')) {
       return { 
         text: 'Adaptação & Técnica', 
         classes: 'bg-blue-100 text-blue-800 border border-blue-200' 
@@ -120,6 +100,11 @@ export default function App() {
 
   const tagInfo = getTagInfo();
 
+  // Progress Bar Calculation
+  const totalExercises = currentExercises.length;
+  const completedExercises = currentExercises.filter(ex => sessionData[ex.id]?.completed).length;
+  const sessionProgress = totalExercises > 0 ? (completedExercises / totalExercises) * 100 : todayWorkout.isRestDay ? 100 : 0;
+
   // Check if workout is complete
   const isWorkoutComplete = useMemo(() => {
     if (todayWorkout.isRestDay) return true;
@@ -128,6 +113,35 @@ export default function App() {
   }, [currentExercises, sessionData, todayWorkout.isRestDay]);
 
   // Handlers
+  const handleOnboardingComplete = async (name: string, levelId: string) => {
+    await createProgressMutation.mutateAsync({
+      name,
+      total_workouts: 0,
+      current_streak: 0,
+      unlocked_level_id: levelId,
+      level_history: { [levelId]: 0 } // Initialize history for the selected level
+    });
+  };
+
+  const handleChangePlan = async (planId: string) => {
+    if (userProgress?.id) {
+        // Initialize level history if it doesn't exist for the new plan
+        const updatedHistory = { ...(userProgress.level_history || {}) };
+        if (!updatedHistory[planId]) {
+            updatedHistory[planId] = 0;
+        }
+
+        await updateProgressMutation.mutateAsync({
+            id: userProgress.id,
+            data: { 
+                unlocked_level_id: planId,
+                level_history: updatedHistory
+            }
+        });
+        alert('Plano alterado com sucesso! Boa sorte no novo nível.');
+    }
+  };
+
   const handleToggleExercise = (exerciseId: string) => {
     setSessionData(prev => ({
       ...prev,
@@ -153,47 +167,46 @@ export default function App() {
     setShowNPS(true);
   };
 
-  const handleResetData = () => {
-    base44.entities.UserProgress.clear();
-    base44.entities.WorkoutHistory.clear();
-    setSessionData({});
-    queryClient.invalidateQueries();
-    window.location.reload();
+  const handleResetData = async () => {
+    try {
+      localStorage.removeItem('fitquest_user_progress');
+      localStorage.removeItem('fitquest_workout_history');
+      setSessionData({});
+      await queryClient.resetQueries();
+      queryClient.clear();
+      // Force reload to clear state completely
+      window.location.reload();
+    } catch (e) {
+      console.error("Error resetting data", e);
+      alert("Erro ao resetar. Tente recarregar a página manualmente.");
+    }
   };
 
   const handleSubmitNPS = async (score: number) => {
     const now = new Date().toISOString();
-    
-    // Calculate streak
     let newStreak = userProgress?.current_streak || 0;
+    
     if (userProgress?.last_workout_date) {
       const lastDate = new Date(userProgress.last_workout_date);
       const today = new Date();
       const diffTime = Math.abs(today.getTime() - lastDate.getTime());
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       
-      if (diffDays <= 2) {
-        newStreak += 1;
-      } else {
-        newStreak = 1;
-      }
+      if (diffDays <= 2) newStreak += 1;
+      else newStreak = 1;
     } else {
       newStreak = 1;
     }
 
-    // Check for level unlocks
     const newTotal = (userProgress?.total_workouts || 0) + 1;
-    let newUnlockedId = userProgress?.unlocked_level_id || 'iniciante_fundacao';
     
-    const nextPlan = PLANS.find(p => 
-      p.minWorkoutsToUnlock > (userProgress?.total_workouts || 0) && 
-      p.minWorkoutsToUnlock <= newTotal
-    );
-    if (nextPlan) {
-      newUnlockedId = nextPlan.id;
-    }
+    // Update Level Specific History
+    const currentLevelId = userProgress?.unlocked_level_id || currentPlan.id;
+    const currentLevelHistory = userProgress?.level_history || {};
+    const newLevelCount = (currentLevelHistory[currentLevelId] || 0) + 1;
+    const updatedHistory = { ...currentLevelHistory, [currentLevelId]: newLevelCount };
 
-    // Save workout history
+    // Save history
     const entries = Object.entries(sessionData) as [string, { completed: boolean; weight: string }][];
     const exercisesCompleted = entries
       .filter(([_, data]) => data.completed)
@@ -206,7 +219,7 @@ export default function App() {
       exercises_completed: exercisesCompleted
     });
 
-    // Update user progress
+    // Update progress
     if (userProgress?.id) {
       await updateProgressMutation.mutateAsync({
         id: userProgress.id,
@@ -214,7 +227,7 @@ export default function App() {
           total_workouts: newTotal,
           current_streak: newStreak,
           last_workout_date: now,
-          unlocked_level_id: newUnlockedId
+          level_history: updatedHistory
         }
       });
     }
@@ -224,39 +237,38 @@ export default function App() {
     setActiveTab('stats');
   };
 
-  const nextUnlockLevel = PLANS.find(p => p.minWorkoutsToUnlock > (userProgress?.total_workouts || 0)) || null;
+  // Show Onboarding if no progress found after loading
+  if (!isLoadingProgress && !userProgress) {
+    return <Onboarding onComplete={handleOnboardingComplete} />;
+  }
 
   return (
-    <div className="min-h-screen bg-game-light text-game-dark max-w-xl mx-auto shadow-2xl overflow-hidden relative border-x border-game-dim">
+    <div className="min-h-screen bg-game-light text-game-dark max-w-xl mx-auto shadow-2xl overflow-hidden relative border-x border-game-dim flex flex-col">
       
       {/* Header */}
       <header className="px-6 py-6 flex justify-between items-center bg-game-light/95 backdrop-blur sticky top-0 z-40 border-b border-game-dim">
         <div className="flex items-center gap-3">
-          {/* Logo Mark */}
-          <div className={`w-10 h-10 rounded-xl border border-game-dark flex items-center justify-center shadow-lg relative overflow-hidden group ${logoError ? 'bg-game-dark' : 'bg-transparent'}`}>
-            {!logoError ? (
-              <img 
-                src="./logo.png" 
-                alt="GameFit Logo" 
-                className="w-full h-full object-contain p-0.5"
-                onError={() => setLogoError(true)}
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center bg-game-dark">
-                <div className="relative z-10 font-black text-2xl italic tracking-tighter text-game-white" style={{ fontFamily: 'Inter, sans-serif' }}>
-                  G
-                </div>
+          <div className="w-12 h-12 flex items-center justify-center relative">
+            <img 
+              src="./logo.png" 
+              alt="GameFit" 
+              className="w-full h-full object-contain"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                setLogoError(true);
+              }}
+            />
+            {logoError && (
+              <div className="w-12 h-12 bg-game-dark rounded-xl flex items-center justify-center text-white font-bold">
+                 GF
               </div>
             )}
           </div>
           
-          {/* Logo Type */}
           <div>
-            <h1 className="text-xl font-black italic tracking-tight text-game-dark leading-none">
-              GAMEFIT
-            </h1>
-            <p className="text-[10px] text-gray-500 font-bold tracking-[0.2em] uppercase mt-1">
-              TREINE COM NÍVEIS
+            <h1 className="text-sm font-bold text-gray-400 leading-none">Olá,</h1>
+            <p className="text-xl font-black italic tracking-tight text-game-dark uppercase truncate max-w-[150px]">
+              {userProgress?.name || 'Atleta'}
             </p>
           </div>
         </div>
@@ -266,9 +278,19 @@ export default function App() {
           <span className="font-mono font-bold text-sm text-game-dark">{userProgress?.current_streak || 0}</span>
         </div>
       </header>
+      
+      {/* Session Progress Bar */}
+      {activeTab === 'workout' && (
+        <div className="sticky top-[89px] z-30 w-full h-1 bg-gray-200">
+           <div 
+             className="h-full bg-game-dark transition-all duration-500 ease-out"
+             style={{ width: `${sessionProgress}%` }}
+           />
+        </div>
+      )}
 
       {/* Main Content */}
-      <main className="p-6">
+      <main className="p-6 flex-1">
         {activeTab === 'workout' && (
           <div className="pb-48"> 
             
@@ -346,7 +368,7 @@ export default function App() {
             </div>
 
             {/* Exercise List */}
-            <div className="space-y-4">
+            <div className="space-y-3">
               {currentExercises.map((ex, idx) => (
                 <ExerciseCard 
                   key={ex.id} 
@@ -389,8 +411,8 @@ export default function App() {
           <StatsView 
             userProgress={userProgress} 
             workoutHistory={workoutHistory}
-            nextUnlockLevel={nextUnlockLevel} 
             onReset={handleResetData}
+            onChangePlan={handleChangePlan}
           />
         )}
       </main>
@@ -401,7 +423,7 @@ export default function App() {
       )}
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-game-light/95 backdrop-blur border-t border-game-dim flex justify-around p-2 pb-6 z-50 max-w-xl mx-auto">
+      <nav className="fixed bottom-0 left-0 right-0 bg-game-light/95 backdrop-blur border-t border-game-dim flex justify-around items-center p-2 pb-6 z-50 max-w-xl mx-auto">
         <button 
           onClick={() => setActiveTab('workout')}
           className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors w-24 ${
@@ -411,6 +433,12 @@ export default function App() {
           <Activity className="w-6 h-6" />
           <span className="text-[10px] font-bold uppercase tracking-wider">Treinar</span>
         </button>
+        
+        {/* Footer Logo */}
+        <div className="opacity-20 hover:opacity-100 transition-opacity w-8 h-8">
+            <img src="./logo.png" className="w-full h-full object-contain" alt="GameFit" />
+        </div>
+
         <button 
           onClick={() => setActiveTab('stats')}
           className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors w-24 ${
