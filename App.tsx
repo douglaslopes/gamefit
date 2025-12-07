@@ -8,7 +8,8 @@ import {
   Home,
   Dumbbell,
   Lock,
-  Sparkles
+  Sparkles,
+  Check
 } from 'lucide-react';
 
 import { PLANS, LEVEL_1_PLAN, MOTIVATIONAL_QUOTES, WORKOUT_TIPS } from './constants';
@@ -77,6 +78,32 @@ export default function App() {
   const currentExercises = location === 'home' ? todayWorkout.exercisesHome : todayWorkout.exercisesGym;
   const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
   const todayTip = WORKOUT_TIPS[todayWorkout.focus] || 'Foque na técnica antes da carga!';
+
+  // Calculate completed days in current week
+  const completedDayIndices = useMemo(() => {
+    const now = new Date();
+    // Calculate start of week (Sunday)
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    // Calculate end of week (Saturday)
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    endOfWeek.setHours(23, 59, 59, 999);
+
+    const indices = new Set<number>();
+    
+    workoutHistory.forEach(h => {
+      const workoutDate = new Date(h.date);
+      // Check if workout falls within current week
+      if (workoutDate >= startOfWeek && workoutDate <= endOfWeek) {
+        indices.add(workoutDate.getDay());
+      }
+    });
+
+    return indices;
+  }, [workoutHistory]);
 
   // Tag styling based on workout type
   const getTagInfo = () => {
@@ -301,25 +328,43 @@ export default function App() {
 
             {/* Day Selector */}
             <div className="flex items-center justify-center gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide">
-              {dayNames.map((day, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => {
-                    setSelectedDayIndex(idx);
-                    setSessionData({});
-                  }}
-                  className={`
-                    w-10 h-10 rounded-xl text-xs font-bold transition-all flex-shrink-0 border shadow-sm
-                    ${idx === selectedDayIndex 
-                      ? 'bg-game-dark border-game-dark text-white scale-105' 
-                      : idx === new Date().getDay()
-                        ? 'bg-white border-game-dark text-game-dark'
-                        : 'bg-white border-game-dim text-gray-400 hover:text-game-dark hover:border-gray-300'}
-                  `}
-                >
-                  {day}
-                </button>
-              ))}
+              {dayNames.map((day, idx) => {
+                const isSelected = idx === selectedDayIndex;
+                const isCompleted = completedDayIndices.has(idx);
+                const isToday = idx === new Date().getDay();
+
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => {
+                      setSelectedDayIndex(idx);
+                      setSessionData({});
+                    }}
+                    className={`
+                      w-10 h-10 rounded-xl text-xs font-bold transition-all flex-shrink-0 border shadow-sm flex items-center justify-center relative overflow-hidden
+                      ${isSelected 
+                        ? 'bg-game-dark border-game-dark text-white scale-105' 
+                        : isCompleted
+                          ? 'bg-emerald-50 border-emerald-500 text-emerald-700'
+                          : isToday
+                            ? 'bg-white border-game-dark text-game-dark'
+                            : 'bg-white border-game-dim text-gray-400 hover:text-game-dark hover:border-gray-300'
+                      }
+                    `}
+                  >
+                    {isCompleted && !isSelected ? (
+                      <Check size={18} strokeWidth={3} />
+                    ) : (
+                      day
+                    )}
+                    
+                    {/* Visual dot for completed + selected state */}
+                    {isCompleted && isSelected && (
+                      <div className="absolute bottom-1 w-1 h-1 bg-emerald-400 rounded-full"></div>
+                    )}
+                  </button>
+                );
+              })}
             </div>
 
             {/* Location Toggle */}
